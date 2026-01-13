@@ -1,0 +1,114 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- 1. USERS & AUTH ---
+enum Role {
+  CUSTOMER
+  THEATER_ADMIN
+  SUPER_ADMIN
+}
+
+model User {
+  id       String  @id @default(uuid())
+  email    String  @unique
+  password String
+  name     String?
+  role     Role    @default(CUSTOMER)
+
+  theaters  Theater[]
+  bookings  Booking[]
+  createdAt DateTime  @default(now())
+}
+
+// --- 2. THEATER INVENTORY ---
+model Theater {
+  id      String   @id @default(uuid())
+  name    String
+  city    String
+  ownerId String
+  owner   User     @relation(fields: [ownerId], references: [id])
+  screens Screen[]
+}
+
+model Screen {
+  id        String  @id @default(uuid())
+  number    Int
+  theaterId String
+  theater   Theater @relation(fields: [theaterId], references: [id])
+  seats     Seat[]
+  shows     Show[]
+}
+
+model Seat {
+  id       String @id @default(uuid())
+  screenId String
+  screen   Screen @relation(fields: [screenId], references: [id])
+  row      String
+  number   Int
+  type     String // "VIP", "STANDARD"
+
+  bookings BookingSeat[]
+
+  @@unique([screenId, row, number])
+}
+
+// --- 3. MOVIES & SHOWS ---
+model Movie {
+  id          String @id @default(uuid())
+  title       String
+  description String
+  duration    Int
+  shows       Show[]
+}
+
+model Show {
+  id        String   @id @default(uuid())
+  movieId   String
+  movie     Movie    @relation(fields: [movieId], references: [id])
+  screenId  String
+  screen    Screen   @relation(fields: [screenId], references: [id])
+  startTime DateTime
+
+  bookings Booking[]
+}
+
+// --- 4. TRANSACTIONS ---
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+}
+
+model Booking {
+  id     String        @id @default(uuid())
+  userId String
+  user   User          @relation(fields: [userId], references: [id])
+  showId String
+  show   Show          @relation(fields: [showId], references: [id])
+  status BookingStatus @default(PENDING)
+
+  seats     BookingSeat[]
+  createdAt DateTime      @default(now())
+}
+
+model BookingSeat {
+  bookingId String
+  booking   Booking @relation(fields: [bookingId], references: [id])
+  seatId    String
+  seat      Seat    @relation(fields: [seatId], references: [id])
+
+  @@id([bookingId, seatId])
+}
